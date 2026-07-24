@@ -30,12 +30,28 @@ pipeline {
             }
         }
 
-        stage("Security Scan Trivy Filesystem") {
-            steps {
-                echo "Scan the project workspace for vulnerabilities"
-                sh 'trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table .'
-            }
+stage('Trivy Filesystem Scan') {
+    steps {
+        script {
+            sh '''
+            mkdir -p trivy-reports
+
+            SERVICES="backend frontend banking-service language-service price-service air-cargo-service sea-cargo-service"
+
+            for service in $SERVICES
+            do
+                echo "Scanning $service..."
+                trivy fs \
+                    --scanners vuln,secret,misconfig \
+                    --severity HIGH,CRITICAL \
+                    --format table \
+                    --output trivy-reports/${service}-fs.txt \
+                    ./$service
+            done
+            '''
         }
+    }
+}
 
         stage("Build & Publish Docker Images") {
             parallel {
