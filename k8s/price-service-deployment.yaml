@@ -1,9 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: price-deployment
-  labels:
-    app: price-service
+  name: price-service
+  namespace: dhl
 spec:
   replicas: 1
   selector:
@@ -15,24 +14,23 @@ spec:
         app: price-service
     spec:
       containers:
-      - name: price-service
-        image: dhl-price-service:latest
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 5002
-        env:
-        - name: PORT
-          value: "5002"
+        - name: price-service
+          image: docker.io/dataquaintacademy/dhl-price-service:latest
+          ports:
+            - containerPort: 5002
+          env:
+            - name: PORT
+              value: "5002"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: price-service
+  namespace: dhl
 spec:
   selector:
     app: price-service
   ports:
-    - protocol: TCP
-      port: 5002
+    - port: 5002
       targetPort: 5002
   type: ClusterIP

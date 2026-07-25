@@ -1,9 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mongodb-deployment
-  labels:
-    app: mongodb
+  name: mongodb
+  namespace: dhl
 spec:
   replicas: 1
   selector:
@@ -15,25 +14,25 @@ spec:
         app: mongodb
     spec:
       containers:
-      - name: mongodb
-        image: mongo:latest
-        ports:
-        - containerPort: 27017
-        volumeMounts:
-        - name: mongodb-storage
-          mountPath: /data/db
+        - name: mongodb
+          image: mongo:6.0
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
       volumes:
-      - name: mongodb-storage
-        emptyDir: {}
+        - name: mongo-data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mongodb-service
+  name: mongodb
+  namespace: dhl
 spec:
   selector:
     app: mongodb
   ports:
-    - protocol: TCP
-      port: 27017
+    - port: 27017
       targetPort: 27017
