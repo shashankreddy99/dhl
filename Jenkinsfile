@@ -11,6 +11,8 @@ pipeline {
         DOCKER_CREDENTIALS_ID = 'docker-creds'
         DOCKER_IMAGE_BASE    = 'dataquaintacademy/dhl'
         IMAGE_TAG            = "${env.BUILD_NUMBER}"
+        AWS_REGION            = 'us-east-1'
+        EKS_CLUSTER_NAME      = 'dhl-cluster'
     }
 
     stages {
@@ -164,6 +166,32 @@ stage('Trivy Filesystem Scan') {
                                 sh "docker push ${DOCKER_IMAGE_BASE}-frontend:latest"
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                script {
+                    withAWS(credentials: 'aws-creds', region: "${AWS_REGION}") {
+                        // Update kubeconfig for EKS cluster
+                        sh "aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}"
+                        
+                        // Set the newly built image tags using kustomize
+                        sh """
+                            cd k8s
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-backend:latest=docker.io/dataquaintacademy/dhl-backend:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-banking-service:latest=docker.io/dataquaintacademy/dhl-banking-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-language-service:latest=docker.io/dataquaintacademy/dhl-language-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-price-service:latest=docker.io/dataquaintacademy/dhl-price-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-air-cargo-service:latest=docker.io/dataquaintacademy/dhl-air-cargo-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-sea-cargo-service:latest=docker.io/dataquaintacademy/dhl-sea-cargo-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-frontend:latest=docker.io/dataquaintacademy/dhl-frontend:${IMAGE_TAG}
+                        """
+                        
+                        // Deploy to EKS
+                        sh "kubectl apply -k k8s/"
                     }
                 }
             }
