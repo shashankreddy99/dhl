@@ -12,7 +12,7 @@ pipeline {
         DOCKER_IMAGE_BASE    = 'dataquaintacademy/dhl'
         IMAGE_TAG            = "${env.BUILD_NUMBER}"
         AWS_REGION            = 'us-east-1'
-        EKS_CLUSTER_NAME      = 'dhl-cluster'
+        EKS_CLUSTER_NAME      = 'my-eks-cluster'
     }
 
     stages {
