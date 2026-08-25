@@ -7,10 +7,8 @@ pipeline {
 
     environment {
         SONARQUBE_SERVER_ENV = 'sonarqubeserver'
-        DOCKER_REGISTRY = 'docker.io'
-        DOCKER_CREDITANLS_ID = "docker-creds"
-        DOCKER_IMAGE = "shashanka00315964/dhl_repo"
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        DOCKER_IMAGE = 'shashanka00315964/dhl_repo'
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -30,8 +28,6 @@ pipeline {
                     bcc: 'k.shashankreddy599@gmail.com',
                     body: 'Checkout Source Code successful',
                     cc: 'k.shashankreddy599@gmail.com',
-                    from: '',
-                    replyTo: '',
                     subject: 'Build successful',
                     to: 'k.shashankreddy599@gmail.com'
                 )
@@ -44,22 +40,24 @@ pipeline {
 
                 sh 'node --version'
                 sh 'npm --version'
+                sh 'docker --version'
+                sh 'trivy --version'
             }
         }
 
-        stage('DependencyResoluction') {
+        stage('DependencyResolution') {
             steps {
                 sh 'npm ci'
             }
         }
 
-        stage('lint check') {
+        stage('Lint Check') {
             steps {
                 sh 'npm run lint'
             }
         }
 
-        stage('SonarqubeStaicScan') {
+        stage('SonarQube Static Scan') {
             steps {
                 script {
                     def scannerHome = tool 'sonar-scanner'
@@ -85,39 +83,67 @@ pipeline {
             }
         }
 
-        stage('Security_scan_trivy_filesystem') {
+        stage('Security Scan - Trivy') {
             steps {
-                echo 'Scan the project workspace for vulnerabilities'
-               // sh 'trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table .'
-                sh 'trivy fs --scanners vuln --severity HIGH,CRITICAL .'
+                echo 'Scanning project workspace for vulnerabilities'
+
+                sh '''
+                    trivy fs \
+                    --scanners vuln \
+                    --severity HIGH,CRITICAL \
+                    .
+                '''
             }
         }
-       /*
-        stage("Build_Docker_image") {
-            steps{
-                echo "Building docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}.... "
-                sh "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} ."
-                sh "docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${DOCKER_IMAGE}:latest"
+
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+
+                sh """
+                    docker build \
+                    -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
+                    .
+                """
+
+                sh """
+                    docker tag \
+                    ${DOCKER_IMAGE}:${IMAGE_TAG} \
+                    ${DOCKER_IMAGE}:latest
+                """
             }
         }
     }
-   */
 
     post {
-        failure {
+        success {
             slackSend(
                 channel: '#thesumari',
                 tokenCredentialId: 'slack-token',
-                message: 'Pipeline Failed'
+                message: "Pipeline Successful - Build #${BUILD_NUMBER}"
             )
 
             mail(
                 bcc: 'k.shashankreddy599@gmail.com',
-                body: 'Pipeline Failed',
+                body: "Pipeline Successful - Build #${BUILD_NUMBER}",
                 cc: 'k.shashankreddy599@gmail.com',
-                from: '',
-                replyTo: '',
-                subject: 'Build Failed',
+                subject: "Build Successful #${BUILD_NUMBER}",
+                to: 'k.shashankreddy599@gmail.com'
+            )
+        }
+
+        failure {
+            slackSend(
+                channel: '#thesumari',
+                tokenCredentialId: 'slack-token',
+                message: "Pipeline Failed - Build #${BUILD_NUMBER}"
+            )
+
+            mail(
+                bcc: 'k.shashankreddy599@gmail.com',
+                body: "Pipeline Failed - Build #${BUILD_NUMBER}",
+                cc: 'k.shashankreddy599@gmail.com',
+                subject: "Build Failed #${BUILD_NUMBER}",
                 to: 'k.shashankreddy599@gmail.com'
             )
         }
