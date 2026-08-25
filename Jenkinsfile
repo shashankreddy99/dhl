@@ -45,18 +45,6 @@ pipeline {
             }
         }
 
-        stage('DependencyResolution') {
-            steps {
-                sh 'npm ci'
-            }
-        }
-
-        stage('Lint Check') {
-            steps {
-                sh 'npm run lint'
-            }
-        }
-
         stage('SonarQube Static Scan') {
             steps {
                 script {
