@@ -44,7 +44,8 @@ pipeline {
                 sh 'trivy --version'
             }
         }
-      /*
+
+        /*
         stage('SonarQube Static Scan') {
             steps {
                 script {
@@ -70,7 +71,8 @@ pipeline {
                 sh 'npm run build'
             }
         }
-    *.
+        */
+
         stage('Security Scan - Trivy') {
             steps {
                 echo 'Scanning project workspace for vulnerabilities'
@@ -83,7 +85,8 @@ pipeline {
                 '''
             }
         }
-    /*
+
+        /*
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
@@ -101,8 +104,9 @@ pipeline {
                 """
             }
         }
+        */
     }
-*/
+
     post {
         success {
             slackSend(
@@ -136,5 +140,4 @@ pipeline {
             )
         }
     }
-}
 }
