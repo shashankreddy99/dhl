@@ -171,7 +171,7 @@ stage('Trivy Filesystem Scan') {
                 }
             }
         }
-
+ /*
         stage('Deploy to EKS') {
             steps {
                 script {
@@ -198,7 +198,7 @@ stage('Trivy Filesystem Scan') {
             }
         }
     }
-
+*/
     post {
         failure {
             slackSend channel: 'teamsamurai', message: 'Pipeline Failed'
