@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -307,4 +306,4 @@ pipeline {
         }
     }
 }
-```
+
