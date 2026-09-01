@@ -9,7 +9,8 @@ pipeline {
         SONARQUBE_SERVER_ENV = 'sonarqubeserver'
         DOCKER_REGISTRY       = 'docker.io'
         DOCKER_CREDENTIALS_ID = 'docker-creds'
-        DOCKER_IMAGE_BASE    = 'dataquaintacademy/dhl'
+       //##  DOCKER_IMAGE_BASE    = 'dataquaintacademy/dhl'
+        DOCKER_IMAGE_BASE = "shashanka00315964/dhl"
         IMAGE_TAG            = "${env.BUILD_NUMBER}"
         AWS_REGION            = 'us-east-1'
         EKS_CLUSTER_NAME      = 'my-eks-cluster'
