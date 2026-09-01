@@ -7,137 +7,201 @@ pipeline {
 
     environment {
         SONARQUBE_SERVER_ENV = 'sonarqubeserver'
-        DOCKER_IMAGE = 'shashanka00315964/dhl_repo'
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_REGISTRY       = 'docker.io'
+        DOCKER_CREDENTIALS_ID = 'docker-creds'
+        DOCKER_IMAGE_BASE    = 'dataquaintacademy/dhl'
+        IMAGE_TAG            = "${env.BUILD_NUMBER}"
+        AWS_REGION            = 'us-east-1'
+        EKS_CLUSTER_NAME      = 'my-eks-cluster'
     }
 
     stages {
-
         stage('CheckoutSourceCode') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/shashankreddy99/dhl.git'
-
-                slackSend(
-                    channel: '#thesumari',
-                    tokenCredentialId: 'slack-token',
-                    message: 'Checkout Successful'
-                )
-
-                mail(
-                    bcc: 'k.shashankreddy599@gmail.com',
-                    body: 'Checkout Source Code successful',
-                    cc: 'k.shashankreddy599@gmail.com',
-                    subject: 'Build successful',
-                    to: 'k.shashankreddy599@gmail.com'
-                )
+                git branch: 'main', url: 'https://github.com/Quantumvector2026/dhl.git'
+                slackSend channel: 'teamsamurai', message: 'Checkout Successful'
+                mail bcc: 'projects2488@gmail.com', body: 'Checkout source code successful', cc: 'projects2488@gmail.com', from: '', replyTo: '', subject: 'Build successful', to: 'projects2488@gmail.com'
             }
         }
 
-        stage('Environment setup') {
+        stage("Environment Setup") {
             steps {
-                echo 'Checking workspace and tools'
-
+                echo "Checking workspace and tools"
                 sh 'node --version'
                 sh 'npm --version'
-                sh 'docker --version'
-                sh 'trivy --version'
             }
         }
 
-        /*
-        stage('SonarQube Static Scan') {
-            steps {
-                script {
-                    def scannerHome = tool 'sonar-scanner'
+stage('Trivy Filesystem Scan') {
+    steps {
+        script {
+            sh '''
+            mkdir -p trivy-reports
 
-                    withSonarQubeEnv(SONARQUBE_SERVER_ENV) {
-                        sh "${scannerHome}/bin/sonar-scanner"
+            SERVICES="backend frontend banking-service language-service price-service air-cargo-service sea-cargo-service"
+
+            for service in $SERVICES
+            do
+                echo "Scanning $service..."
+                trivy fs \
+                    --scanners vuln,secret,misconfig \
+                    --severity HIGH,CRITICAL \
+                    --format table \
+                    --output trivy-reports/${service}-fs.txt \
+                    ./$service
+            done
+            '''
+        }
+    }
+}
+
+        stage("Build & Publish Docker Images") {
+            parallel {
+                stage('Build Backend') {
+                    steps {
+                        script {
+                            echo "Building backend image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-backend:${IMAGE_TAG} -f backend/Dockerfile ./backend"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-backend:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-backend:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-backend:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-backend:latest"
+                            }
+                        }
                     }
+                }
 
-                    timeout(time: 10, unit: 'MINUTES') {
-                        def qg = waitForQualityGate()
+                stage('Build Banking Service') {
+                    steps {
+                        script {
+                            echo "Building banking-service image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-banking-service:${IMAGE_TAG} -f banking-service/Dockerfile ./banking-service"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-banking-service:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-banking-service:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-banking-service:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-banking-service:latest"
+                            }
+                        }
+                    }
+                }
 
-                        if (qg.status != 'OK') {
-                            error "Pipeline aborted: ${qg.status}"
+                stage('Build Language Service') {
+                    steps {
+                        script {
+                            echo "Building language-service image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-language-service:${IMAGE_TAG} -f language-service/Dockerfile ./language-service"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-language-service:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-language-service:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-language-service:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-language-service:latest"
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Price Service') {
+                    steps {
+                        script {
+                            echo "Building price-service image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-price-service:${IMAGE_TAG} -f price-service/Dockerfile ./price-service"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-price-service:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-price-service:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-price-service:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-price-service:latest"
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Air Cargo Service') {
+                    steps {
+                        script {
+                            echo "Building air-cargo-service image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-air-cargo-service:${IMAGE_TAG} -f air-cargo-service/Dockerfile ./air-cargo-service"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-air-cargo-service:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-air-cargo-service:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-air-cargo-service:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-air-cargo-service:latest"
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Sea Cargo Service') {
+                    steps {
+                        script {
+                            echo "Building sea-cargo-service image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-sea-cargo-service:${IMAGE_TAG} -f sea-cargo-service/Dockerfile ./sea-cargo-service"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-sea-cargo-service:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-sea-cargo-service:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-sea-cargo-service:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-sea-cargo-service:latest"
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Frontend') {
+                    steps {
+                        script {
+                            echo "Building frontend image..."
+                            sh "docker build -t ${DOCKER_IMAGE_BASE}-frontend:${IMAGE_TAG} -f frontend/Dockerfile ./frontend"
+                            sh "docker tag ${DOCKER_IMAGE_BASE}-frontend:${IMAGE_TAG} ${DOCKER_IMAGE_BASE}-frontend:latest"
+                            
+                            withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                                sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USER --password-stdin ${DOCKER_REGISTRY}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-frontend:${IMAGE_TAG}"
+                                sh "docker push ${DOCKER_IMAGE_BASE}-frontend:latest"
+                            }
                         }
                     }
                 }
             }
         }
 
-        stage('Build') {
+        stage('Deploy to EKS') {
             steps {
-                sh 'npm run build'
+                script {
+                    withAWS(credentials: 'aws-creds', region: "${AWS_REGION}") {
+                        // Update kubeconfig for EKS cluster
+                        sh "aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}"
+                        
+                        // Set the newly built image tags using kustomize
+                        sh """
+                            cd k8s
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-backend:latest=docker.io/dataquaintacademy/dhl-backend:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-banking-service:latest=docker.io/dataquaintacademy/dhl-banking-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-language-service:latest=docker.io/dataquaintacademy/dhl-language-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-price-service:latest=docker.io/dataquaintacademy/dhl-price-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-air-cargo-service:latest=docker.io/dataquaintacademy/dhl-air-cargo-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-sea-cargo-service:latest=docker.io/dataquaintacademy/dhl-sea-cargo-service:${IMAGE_TAG}
+                            kustomize edit set image docker.io/dataquaintacademy/dhl-frontend:latest=docker.io/dataquaintacademy/dhl-frontend:${IMAGE_TAG}
+                        """
+                        
+                        // Deploy to EKS
+                        sh "kubectl apply -k k8s/"
+                    }
+                }
             }
         }
-        */
-
-        stage('Security Scan - Trivy') {
-            steps {
-                echo 'Scanning project workspace for vulnerabilities'
-
-                sh '''
-                    trivy fs \
-                    --scanners vuln \
-                    --severity HIGH,CRITICAL \
-                    .
-                '''
-            }
-        }
-
-        
-        stage('Build Docker Image') {
-            steps {
-                echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                sh """
-                    docker build \
-                    -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
-                    .
-                """
-
-                sh """
-                    docker tag \
-                    ${DOCKER_IMAGE}:${IMAGE_TAG} \
-                    ${DOCKER_IMAGE}:latest
-                """
-            }
-        }
-        
     }
 
     post {
-        success {
-            slackSend(
-                channel: '#thesumari',
-                tokenCredentialId: 'slack-token',
-                message: "Pipeline Successful - Build #${BUILD_NUMBER}"
-            )
-
-            mail(
-                bcc: 'k.shashankreddy599@gmail.com',
-                body: "Pipeline Successful - Build #${BUILD_NUMBER}",
-                cc: 'k.shashankreddy599@gmail.com',
-                subject: "Build Successful #${BUILD_NUMBER}",
-                to: 'k.shashankreddy599@gmail.com'
-            )
-        }
-
         failure {
-            slackSend(
-                channel: '#thesumari',
-                tokenCredentialId: 'slack-token',
-                message: "Pipeline Failed - Build #${BUILD_NUMBER}"
-            )
-
-            mail(
-                bcc: 'k.shashankreddy599@gmail.com',
-                body: "Pipeline Failed - Build #${BUILD_NUMBER}",
-                cc: 'k.shashankreddy599@gmail.com',
-                subject: "Build Failed #${BUILD_NUMBER}",
-                to: 'k.shashankreddy599@gmail.com'
-            )
+            slackSend channel: 'teamsamurai', message: 'Pipeline Failed'
+            mail bcc: 'projects2488@gmail.com', body: 'Pipeline Failed', cc: 'projects2488@gmail.com', from: '', replyTo: '', subject: 'Pipeline Failed!!', to: 'projects2488@gmail.com'
         }
     }
 }
