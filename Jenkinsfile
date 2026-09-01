@@ -86,7 +86,7 @@ pipeline {
             }
         }
 
-        /*
+        
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
@@ -104,7 +104,7 @@ pipeline {
                 """
             }
         }
-        */
+        
     }
 
     post {
